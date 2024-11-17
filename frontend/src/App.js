@@ -1,15 +1,20 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Login from './components/Login';  // Correct path to Login.js
+import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+import Register from './Register';
+import Login from './Login';
 
-function App() {
+const App = () => {
   return (
-    <Router> {/* Only one BrowserRouter here */}
-      <Routes>
-        <Route path="/" element={<Login />} />
-      </Routes>
+    <Router>
+      <div>
+        <h1>Welcome to the App</h1>
+        <Switch>
+          <Route path="/register" component={Register} />
+          <Route path="/login" component={Login} />
+        </Switch>
+      </div>
     </Router>
   );
-}
+};
 
 export default App;

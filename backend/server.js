@@ -1,48 +1,73 @@
-const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const bodyParser = require("body-parser");
-const cors = require("cors");
+const express = require('express');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const User = require('./models/User');
 
 const app = express();
-app.use(cors());
 app.use(bodyParser.json());
+app.use(cors());  // Allow cross-origin requests (for development)
 
-const SECRET_KEY = "your_secret_key";
+const PORT = 5000;
 
-// Mock user database
-const users = [];
+// MongoDB connection
+mongoose.connect('mongodb://localhost:27017/userDB', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useFindAndModify: false,
+})
+.then(() => console.log("Connected to MongoDB"))
+.catch(err => console.log("Error connecting to MongoDB: ", err));
 
-// Register Route
-app.post("/register", async (req, res) => {
-  const { username, password } = req.body;
+// User Schema
+const userSchema = new mongoose.Schema({
+  username: String,
+  email: { type: String, unique: true },
+  password: String,
+});
+
+const User = mongoose.model('User', userSchema);
+
+// Register route
+app.post('/register', async (req, res) => {
+  const { username, email, password } = req.body;
+
   const hashedPassword = await bcrypt.hash(password, 10);
-  users.push({ username, password: hashedPassword });
-  res.status(201).json({ message: "User registered successfully" });
+
+  const newUser = new User({ username, email, password: hashedPassword });
+
+  try {
+    await newUser.save();
+    res.json({ success: true, message: 'User registered successfully!' });
+  } catch (err) {
+    res.json({ success: false, message: 'Error registering user: ' + err.message });
+  }
 });
 
-// Login Route
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-  const user = users.find((user) => user.username === username);
+// Login route
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
 
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.json({ success: false, message: 'User not found!' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (isMatch) {
+      res.json({ success: true, message: 'Login successful!' });
+    } else {
+      res.json({ success: false, message: 'Incorrect password!' });
+    }
+  } catch (err) {
+    res.json({ success: false, message: 'Error logging in: ' + err.message });
   }
-
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-  if (!isPasswordValid) {
-    return res.status(401).json({ message: "Invalid credentials" });
-  }
-
-  const token = jwt.sign({ username: user.username }, SECRET_KEY, {
-    expiresIn: "1h",
-  });
-
-  res.status(200).json({ message: "Login successful", token });
 });
 
-// Start server
-app.listen(5000, () => {
-  console.log("Server running on http://localhost:5000");
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
